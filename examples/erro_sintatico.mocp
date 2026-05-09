@@ -1,0 +1,4 @@
+vazio principal(vazio) {
+    int x = 5;  /* O ERRO: deve ser 'inteiro' */
+    escrever(x) /* O ERRO: falta o ';' */
+}

@@ -1,0 +1,4 @@
+vazio principal(vazio) {
+    inteiro x = 10
+    escrever(x);
+}

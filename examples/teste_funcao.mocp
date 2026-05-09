@@ -1,0 +1,9 @@
+inteiro dobro(inteiro x);
+
+vazio principal(vazio) {
+    escrever(dobro(5));
+}
+
+inteiro dobro(inteiro x) {
+    retornar x * 2;
+}

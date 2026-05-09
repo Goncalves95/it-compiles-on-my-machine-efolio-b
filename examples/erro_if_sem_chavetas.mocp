@@ -1,0 +1,5 @@
+vazio principal(vazio) {
+    inteiro x = 1;
+    se (x > 0)
+        escrever(x);
+}

@@ -1,0 +1,9 @@
+vazio principal(vazio) {
+    inteiro x = 10;
+    inteiro y = 20;
+    se (x < y) {
+        escrever(y);
+    } senao {
+        escrever(x);
+    }
+}
