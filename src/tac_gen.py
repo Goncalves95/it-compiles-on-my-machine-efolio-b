@@ -78,7 +78,7 @@ class TACGen:
 
                 temp = self.new_temp()
 
-                self.emit(f"{temp} = {left} {node["op"]} {right}")
+                self.emit(f"{temp} = {left} {node['op']} {right}")
 
                 return temp
             
@@ -92,7 +92,7 @@ class TACGen:
                 
                 temp = self.new_temp()
 
-                self.emit(f"{temp} = call {node["name"]}, {len(args)}")
+                self.emit(f"{temp} = call {node['name']}, {len(args)}")
 
                 return temp
             
@@ -132,7 +132,9 @@ class TACGen:
 
                 temp = self.new_temp()
 
-                self.emit(f"{temp} = {node["op"]}{operand}")
+                self.emit(f"{temp} = {node['op']}{operand}")
+
+                return temp
             
             # If/Else !!! Esta com um erro na geracao de temporarios !!!
             case "If":
