@@ -110,7 +110,57 @@ class TACGen:
                     return temp
             
             #
-            # ADICIONAR caso para os IF/ELSE, WHILE, FOR e Assignacao, escalares e vetores
+            # ADICIONAR caso para os WHILE, FOR e vetores
+            
+            # Declaracao de variaveis
+            case "Declaration":
+                for decl in node["declarators"]:
+                    self.generate(decl)
+            
+            # Inicializacoes 
+            case "InitDeclarator":
+                target = self.generate(node["target"])
+                val = self.generate(node["value"])
+
+                self.emit(f"{target} = {val}")
+
+                return None
+            
+            # Operacoes Unarias
+            case "UnaryOp":
+                operand = self.generate(node["operand"])
+
+                temp = self.new_temp()
+
+                self.emit(f"{temp} = {node["op"]}{operand}")
+            
+            # If/Else !!! Esta com um erro na geracao de temporarios !!!
+            case "If":
+                if node["else"] is not None:
+                    label_else = self.new_label()
+                else:
+                    label_else = None
+
+                label_end = self.new_label()
+
+                if label_else is None:
+                    label_else = label_end
+
+                condition = self.generate(node["condition"])
+
+                self.emit(f"ifFalse {condition} goto {label_else}")
+
+                self.generate(node["then"])
+
+                self.emit(f"goto {label_end}")
+
+                if node["else"] is not None:
+                    self.emit(f"{label_else}")
+                    self.generate(node["else"])
+
+                self.emit(f"{label_end}")
+
+
             
             # -- Exibe validaco se no em falta
             case _:
