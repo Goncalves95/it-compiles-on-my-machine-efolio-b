@@ -12,6 +12,7 @@ try:
     from MOCPLexer import MOCPLexer
     from MOCPParser import MOCPParser
     from ast_builder import ASTBuilder
+    from tac_gen import TACGen
 except ImportError as e:
     print(f"[ERRO CRÍTICO] Não foi possível importar os ficheiros gerados: {e}")
     sys.exit(1)
@@ -115,6 +116,12 @@ def main():
                 print("\n=== AST ===")
                 ast = ASTBuilder().visit(tree)
                 print(json.dumps(ast, indent=2, ensure_ascii=False))
+
+                ## Teste Print TAC
+                print("\n=== TAC ===")
+                tac = TACGen()
+                tac.generate(ast)
+                tac.print_code()
 
     except Exception as e:
         print(f"[ERRO] Exceção durante a análise: {e}")
