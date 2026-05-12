@@ -2,6 +2,7 @@ class TACGen:
     def __init__(self):
         self.temp_count = 0
         self.label_count = 0
+        self.str_count = 0
         self.code = []
 
     # Helpers
@@ -13,6 +14,10 @@ class TACGen:
     def new_label(self):
         self.label_count += 1
         return f"L{self.label_count}"
+    
+    def new_str(self):
+        self.str_count += 1
+        return f"str{self.str_count}"
     
     def emit(self, inst):
         self.code.append(inst)
@@ -109,9 +114,6 @@ class TACGen:
                     self.emit(f"{temp} = read")
                     return temp
             
-            #
-            # ADICIONAR caso para os WHILE, FOR e vetores
-            
             # Declaracao de variaveis
             case "Declaration":
                 for decl in node["declarators"]:
@@ -119,6 +121,10 @@ class TACGen:
             
             # Inicializacoes 
             case "InitDeclarator":
+                # -- Variaveis declaradas nao inicializadas --
+                if node["value"] is None:
+                    return None
+                
                 target = self.generate(node["target"])
                 val = self.generate(node["value"])
 
@@ -136,7 +142,7 @@ class TACGen:
 
                 return temp
             
-            # If/Else !!! Esta com um erro na geracao de temporarios !!!
+            # If/Else
             case "If":
                 if node["else"] is not None:
                     label_else = self.new_label()
@@ -162,6 +168,82 @@ class TACGen:
 
                 self.emit(f"{label_end}")
 
+            # Ciclo While
+            case "While":
+                label_start = self.new_label()
+                label_end = self.new_label()
+
+                # Inicio Loop
+                self.emit(f"{label_start}:")
+
+                # Condicao do While
+                cond = self.generate(node["condition"])
+
+                self.emit(f"ifFalse {cond} goto {label_end}")
+
+                # Corpo do While
+                self.generate(node["body"])
+
+                self.emit(f"goto {label_start}")
+
+                # Fim Loop
+                self.emit(f"{label_end:}")
+
+                return None
+            
+            # Assignação de valor simples
+            case "Assignment":
+                value = self.generate(node["value"])
+                target = self.generate(node["target"])
+
+                self.emit(f"{target} = {value}")
+
+                return None
+            
+            # Ciclo For
+            case "For":
+                label_start = self.new_label()
+                label_end = self.new_label()
+
+                # Incializacao For
+                self.generate(node["init"])
+
+                self.emit(f"{label_start}:")
+
+                # Condicao avaliada For
+                cond = self.generate(node["condition"])
+
+                self.emit(f"ifFalse {cond} goto {label_end}")
+
+                # Corpo do For
+                self.generate(node["body"])
+
+                # Atualizacao Var For
+                self.generate(node["update"])      
+
+                # Label de retorno ao topo      
+                self.emit(f"goto {label_start}")
+
+                # Fim Loop
+                self.emit(f"{label_end:}") 
+
+            # Literais
+            case "String":
+                strid = self.new_str()
+
+                self.emit(f"{strid} = \"{node["value"]}\"")
+
+                return strid
+            
+            # Vetores
+            case "ArrayAccess":
+                indx = self.generate(node["index"])
+
+                temp = self.new_temp()
+
+                self.emit(f"{temp} = {node["name"]}[{indx}]")
+
+                return temp
 
             
             # -- Exibe validaco se no em falta
