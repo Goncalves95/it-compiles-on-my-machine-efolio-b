@@ -22,6 +22,14 @@ class TACGen:
     def emit(self, inst):
         self.code.append(inst)
 
+    def lvalue_name(self, node):
+        # Gera o nome do destino sem criar temporario, para permitir v[i] = valor.
+        if node["type"] == "ArrayAccess":
+            indx = self.generate(node["index"])
+            return f"{node['name']}[{indx}]"
+
+        return self.generate(node)
+
     def print_code(self):
         for line in self.code:
             print(line)
@@ -65,8 +73,11 @@ class TACGen:
 
             # Return
             case "Return":
-                value = self.generate(node["value"])
-                self.emit(f"return {value}")
+                if node["value"] is None:
+                    self.emit("return")
+                else:
+                    value = self.generate(node["value"])
+                    self.emit(f"return {value}")
 
             # Numericos
             case "Number":
@@ -105,13 +116,24 @@ class TACGen:
             case "BuiltInCall":
                 name = node["name"]
 
-                if "escrever" in name:
+                if name in ["escrever", "escreverc", "escreverv", "escrevers"]:
+                    write_op = {
+                        "escrever": "write",
+                        "escreverc": "writec",
+                        "escreverv": "writev",
+                        "escrevers": "writes",
+                    }[name]
                     for arg in node["args"]:
                         value = self.generate(arg)
-                        self.emit(f"write {value}")
-                elif "ler" in name:
+                        self.emit(f"{write_op} {value}")
+                elif name in ["ler", "lerc", "lers"]:
+                    read_op = {
+                        "ler": "read",
+                        "lerc": "readc",
+                        "lers": "reads",
+                    }[name]
                     temp = self.new_temp()
-                    self.emit(f"{temp} = read")
+                    self.emit(f"{temp} = {read_op}")
                     return temp
             
             # Declaracao de variaveis
@@ -121,12 +143,22 @@ class TACGen:
             
             # Inicializacoes 
             case "InitDeclarator":
-                # -- Variaveis declaradas nao inicializadas --
-                if node["value"] is None:
+                target_node = node["target"]
+
+                # Declara vetores e reserva o tamanho quando ele existe na AST.
+                if target_node["type"] == "ArrayDeclarator":
+                    size = self.generate(target_node["size"]) if target_node["size"] is not None else 0
+                    self.emit(f"{target_node['name']} = alloc {size}")
+
+                    if node["value"] is not None and node["value"]["type"] == "ArrayLiteral":
+                        for index, element in enumerate(node["value"]["elements"]):
+                            value = self.generate(element)
+                            self.emit(f"{target_node['name']}[{index}] = {value}")
+
                     return None
                 
-                target = self.generate(node["target"])
-                val = self.generate(node["value"])
+                target = self.generate(target_node)
+                val = self.generate(node["value"]) if node["value"] is not None else 0
 
                 self.emit(f"{target} = {val}")
 
@@ -194,7 +226,7 @@ class TACGen:
             # Assignação de valor simples
             case "Assignment":
                 value = self.generate(node["value"])
-                target = self.generate(node["target"])
+                target = self.lvalue_name(node["target"])
 
                 self.emit(f"{target} = {value}")
 
@@ -227,11 +259,18 @@ class TACGen:
                 # Fim Loop
                 self.emit(f"{label_end:}") 
 
+            # Conversoes explicitas entre inteiro e real.
+            case "Cast":
+                value = self.generate(node["value"])
+                temp = self.new_temp()
+                self.emit(f"{temp} = ({node['to']}) {value}")
+                return temp
+
             # Literais
             case "String":
                 strid = self.new_str()
 
-                self.emit(f"{strid} = \"{node["value"]}\"")
+                self.emit(f"{strid} = \"{node['value']}\"")
 
                 return strid
             
@@ -241,9 +280,24 @@ class TACGen:
 
                 temp = self.new_temp()
 
-                self.emit(f"{temp} = {node["name"]}[{indx}]")
+                self.emit(f"{temp} = {node['name']}[{indx}]")
 
                 return temp
+
+            # Literal de vetor usado em expressoes; em declaracoes e tratado no InitDeclarator.
+            case "ArrayLiteral":
+                temp = self.new_temp()
+                self.emit(f"{temp} = array {len(node['elements'])}")
+                for index, element in enumerate(node["elements"]):
+                    value = self.generate(element)
+                    self.emit(f"{temp}[{index}] = {value}")
+                return temp
+
+            case "ArrayDeclarator":
+                return node["name"]
+
+            case "EmptyStatement":
+                return None
 
             
             # -- Exibe validaco se no em falta

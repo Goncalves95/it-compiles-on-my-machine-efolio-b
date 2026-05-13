@@ -12,7 +12,9 @@ try:
     from MOCPLexer import MOCPLexer
     from MOCPParser import MOCPParser
     from ast_builder import ASTBuilder
+    from semantic_analyzer import SemanticAnalyzer
     from tac_gen import TACGen
+    from tac_optimizer import TACOptimizer
 except ImportError as e:
     print(f"[ERRO CRÍTICO] Não foi possível importar os ficheiros gerados: {e}")
     sys.exit(1)
@@ -117,11 +119,25 @@ def main():
                 ast = ASTBuilder().visit(tree)
                 print(json.dumps(ast, indent=2, ensure_ascii=False))
 
+                ## Analise semantica: valida nomes, escopos, chamadas e retornos antes do TAC.
+                semantic_errors = SemanticAnalyzer().analyze(ast)
+                if semantic_errors:
+                    print("\n=== ERROS SEMANTICOS ===")
+                    for error in semantic_errors:
+                        print(error)
+                    sys.exit(1)
+
                 ## Teste Print TAC
                 print("\n=== TAC ===")
                 tac = TACGen()
                 tac.generate(ast)
                 tac.print_code()
+
+                ## Otimizacao TAC: aplica simplificacoes locais ao codigo intermedio gerado.
+                print("\n=== TAC OTIMIZADO ===")
+                optimizer = TACOptimizer()
+                optimized_code = optimizer.optimize(tac.code)
+                optimizer.print_code(optimized_code)
 
     except Exception as e:
         print(f"[ERRO] Exceção durante a análise: {e}")
