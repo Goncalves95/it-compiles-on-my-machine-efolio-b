@@ -1,0 +1,5 @@
+vazio principal(vazio) {
+    inteiro x = 10;
+    escrevers("Ola, mundo MOCP!");
+    escrever(x);
+}

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ================================================================================
                MOCP COMPILER - E-FÓLIO B
                Unidade Curricular: Compilação (21018)
@@ -103,3 +104,7 @@ Get-ChildItem examples/*.mocp | ForEach-Object {
 - Assistência de IA: Esta implementação contou com o apoio de Inteligência Artificial 
   (Gemini) no desenho estratégico do pipeline.
 ================================================================================
+=======
+# it-compiles-on-my-machine-efolio-b
+MOPC Compiler - Grupo "It Compiles on My Machine
+>>>>>>> 864d20cb9b039374a12d73cadd333ac0a9330a9b
