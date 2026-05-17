@@ -113,31 +113,36 @@ def main():
             if show_tree:
                 print("\n=== PARSE TREE ===")
                 print_parse_tree(tree, parser)
-                
+
+            # A AST é sempre construída, porque serve de base à análise semântica,
+            # geração de TAC e otimização. A opção --ast apenas controla se ela é impressa.
+            ast = ASTBuilder().visit(tree)
+
             if show_ast:
                 print("\n=== AST ===")
-                ast = ASTBuilder().visit(tree)
                 print(json.dumps(ast, indent=2, ensure_ascii=False))
 
-                ## Analise semantica: valida nomes, escopos, chamadas e retornos antes do TAC.
-                semantic_errors = SemanticAnalyzer().analyze(ast)
-                if semantic_errors:
-                    print("\n=== ERROS SEMANTICOS ===")
-                    for error in semantic_errors:
-                        print(error)
-                    sys.exit(1)
+            # Análise semântica -> valida nomes, escopos, chamadas e retornos antes do TAC.
+            semantic_errors = SemanticAnalyzer().analyze(ast)
+            if semantic_errors:
+                print("\n=== ERROS SEMÂNTICOS ===")
+                for error in semantic_errors:
+                    print(error)
+                sys.exit(1)
 
-                ## Teste Print TAC
-                print("\n=== TAC ===")
-                tac = TACGen()
-                tac.generate(ast)
-                tac.print_code()
+            print("\n[SUCESSO] Análise semântica concluída sem erros.")
 
-                ## Otimizacao TAC: aplica simplificacoes locais ao codigo intermedio gerado.
-                print("\n=== TAC OTIMIZADO ===")
-                optimizer = TACOptimizer()
-                optimized_code = optimizer.optimize(tac.code)
-                optimizer.print_code(optimized_code)
+            # Geração de TAC
+            print("\n=== TAC ===")
+            tac = TACGen()
+            tac.generate(ast)
+            tac.print_code()
+
+            # Otimização TAC -> aplica simplificações locais ao código intermédio gerado.
+            print("\n=== TAC OTIMIZADO ===")
+            optimizer = TACOptimizer()
+            optimized_code = optimizer.optimize(tac.code)
+            optimizer.print_code(optimized_code)
 
     except Exception as e:
         print(f"[ERRO] Exceção durante a análise: {e}")
