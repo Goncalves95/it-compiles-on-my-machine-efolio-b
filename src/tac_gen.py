@@ -87,7 +87,8 @@ class TACGen:
             case "Identifier":
                 return node["name"]
             
-            # Operadores Binarios  !!! Rever os agregadores AND e OR Estão aqui a entrar !!!
+            # Operadores binários -> aritméticos, relacionais e lógicos.
+            # Os operadores lógicos && e || têm tratamento específico para garantir curto-circuito.
             case "BinaryOp":
                 op = node["op"]
 
@@ -246,10 +247,10 @@ class TACGen:
                 self.emit(f"goto {label_end}")
 
                 if node["else"] is not None:
-                    self.emit(f"{label_else}")
+                    self.emit(f"{label_else}:")
                     self.generate(node["else"])
 
-                self.emit(f"{label_end}")
+                self.emit(f"{label_end}:")
 
             # Ciclo While
             case "While":
@@ -270,7 +271,7 @@ class TACGen:
                 self.emit(f"goto {label_start}")
 
                 # Fim Loop
-                self.emit(f"{label_end:}")
+                self.emit(f"{label_end}:")
 
                 return None
             
@@ -308,7 +309,7 @@ class TACGen:
                 self.emit(f"goto {label_start}")
 
                 # Fim Loop
-                self.emit(f"{label_end:}") 
+                self.emit(f"{label_end}:") 
 
             # Conversoes explicitas entre inteiro e real.
             case "Cast":
