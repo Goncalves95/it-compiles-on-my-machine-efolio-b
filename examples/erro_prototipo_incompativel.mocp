@@ -1,0 +1,12 @@
+inteiro duplica(inteiro x);
+vazio principal(vazio);
+
+real duplica(inteiro x) {
+    retornar x * 2;
+}
+
+vazio principal(vazio) {
+    inteiro y;
+    y = duplica(3);
+    escrever(y);
+}

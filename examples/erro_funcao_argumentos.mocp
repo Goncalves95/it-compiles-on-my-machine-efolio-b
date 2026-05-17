@@ -1,0 +1,12 @@
+inteiro soma(inteiro a, inteiro b);
+vazio principal(vazio);
+
+inteiro soma(inteiro a, inteiro b) {
+    retornar a + b;
+}
+
+vazio principal(vazio) {
+    inteiro x;
+    x = soma(1);
+    escrever(x);
+}
