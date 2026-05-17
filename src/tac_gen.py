@@ -89,14 +89,65 @@ class TACGen:
             
             # Operadores Binarios  !!! Rever os agregadores AND e OR Estão aqui a entrar !!!
             case "BinaryOp":
-                left = self.generate(node["left"])
-                right = self.generate(node["right"])
+                op = node["op"]
 
-                temp = self.new_temp()
+                # Tratamento Especial: Curto-Circuito do operador Lógico E (&&)
+                if op == "&&":
+                    label_falso = self.new_label()
+                    label_fim = self.new_label()
+                    temp = self.new_temp()
 
-                self.emit(f"{temp} = {left} {node['op']} {right}")
+                    # Avalia o lado esquerdo
+                    left = self.generate(node["left"])
+                    self.emit(f"ifFalse {left} goto {label_falso}")
 
-                return temp
+                    # Se o esquerdo for verdadeiro, avalia o lado direito
+                    right = self.generate(node["right"])
+                    self.emit(f"ifFalse {right} goto {label_falso}")
+
+                    # Se ambos forem verdadeiros
+                    self.emit(f"{temp} = 1")
+                    self.emit(f"goto {label_fim}")
+
+                    # Se algum falhar
+                    self.emit(f"{label_falso}:")
+                    self.emit(f"{temp} = 0")
+                    
+                    self.emit(f"{label_fim}:")
+                    return temp
+
+                # Tratamento Especial: Curto-Circuito do operador Lógico OU (||)
+                elif op == "||":
+                    label_verdadeiro = self.new_label()
+                    label_fim = self.new_label()
+                    temp = self.new_temp()
+
+                    # Avalia o lado esquerdo
+                    left = self.generate(node["left"])
+                    self.emit(f"if {left} goto {label_verdadeiro}") # Se for verdadeiro, salta o direito
+
+                    # Se o esquerdo for falso, avalia o lado direito
+                    right = self.generate(node["right"])
+                    self.emit(f"if {right} goto {label_verdadeiro}")
+
+                    # Se ambos forem falsos
+                    self.emit(f"{temp} = 0")
+                    self.emit(f"goto {label_fim}")
+
+                    # Se pelo menos um for verdadeiro
+                    self.emit(f"{label_verdadeiro}:")
+                    self.emit(f"{temp} = 1")
+                    
+                    self.emit(f"{label_fim}:")
+                    return temp
+
+                # Operações Aritméticas e Relacionais normais (+, -, *, /, <, >, ==, etc.)
+                else:
+                    left = self.generate(node["left"])
+                    right = self.generate(node["right"])
+                    temp = self.new_temp()
+                    self.emit(f"{temp} = {left} {op} {right}")
+                    return temp
             
             # Call
             case "Call":
