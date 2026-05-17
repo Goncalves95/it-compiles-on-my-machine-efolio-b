@@ -1,7 +1,5 @@
-================================================================================
-               MOCP COMPILER - E-FÓLIO B
-               Unidade Curricular: Compilação (21018)
-================================================================================
+# MOCP COMPILER - E-FÓLIO B
+Unidade Curricular: Compilação (21018)
 
 Grupo: It Compiles on My Machine 🚀
 Estudantes:
