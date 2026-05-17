@@ -259,6 +259,25 @@ STRING
     : '"' (~["\\\r\n] | '\\' .)* '"'
     ;
 
+C_KEYWORD
+    : 'int'
+    | 'double'
+    | 'void'
+    | 'main'
+    | 'if'
+    | 'else'
+    | 'while'
+    | 'for'
+    | 'return'
+    | 'read'
+    | 'readc'
+    | 'reads'
+    | 'write'
+    | 'writec'
+    | 'writev'
+    | 'writes'
+    ;
+
 ID
     : [a-zA-Z_][a-zA-Z0-9_]*
     ;
