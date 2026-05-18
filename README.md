@@ -21,11 +21,11 @@ Local de código intermédio (Constant Folding e Simplificação Algébrica).
 2. REQUISITOS DO SISTEMA
 --------------------------------------------------------------------------------
 - Python 3.10 ou superior
-- Java Runtime Environment (JRE) instalado (apenas se for necessário regerar o parser)
+- Java Runtime Environment (JRE) instalado (obrigatório para compilar a gramática)
 - Biblioteca antlr4-python3-runtime (versão 4.13.1)
 
 --------------------------------------------------------------------------------
-3. CONFIGURAÇÃO DO AMBIENTE (WINDOWS & MACOS)
+3. PASSO 1: CONFIGURAÇÃO DO AMBIENTE (WINDOWS & MACOS)
 --------------------------------------------------------------------------------
 
 No Windows (PowerShell):
@@ -47,13 +47,22 @@ No macOS / Linux (Terminal):
      pip install -r requirements.txt
 
 --------------------------------------------------------------------------------
-4. COMO EXECUTAR O COMPILADOR
+4. PASSO 2: REGENERAR O PARSER ANTLR (OBRIGATÓRIO NA PRIMEIRA EXECUÇÃO)
+--------------------------------------------------------------------------------
+Para gerar as classes do Lexer e do Parser em Python na pasta "src" a partir 
+da especificação gramatical em "grammar/MOCP.g4", execute o comando Java na 
+raiz do projeto:
+
+java -jar antlr-4.13.1-complete.jar -Dlanguage=Python3 -visitor -Xexact-output-dir -o src grammar/MOCP.g4
+
+--------------------------------------------------------------------------------
+5. PASSO 3: COMO EXECUTAR O COMPILADOR
 --------------------------------------------------------------------------------
 O compilador aceita ficheiros com a extensão `.mocp`. Por omissão, o pipeline
 realiza a análise sintática, a validação semântica, a geração de TAC e exibe 
 o TAC Otimizado no ecrã.
 
-Comando Geral (Com Ambiente Virtual Ativo):
+Comando Geral (A partir da raiz do projeto, com o ambiente virtual ativo):
   python src/main.py <caminho_do_ficheiro.mocp> --ast
 
 Exemplos Práticos Incluídos:
@@ -73,17 +82,10 @@ Nota: A flag `--ast` exporta a estrutura lógica em JSON, valida as regras
 semânticas e dispara o motor TAC intermédio de forma sequencial.
 
 --------------------------------------------------------------------------------
-5. SCRIPT DE REGENERAÇÃO DO PARSER ANTLR (SE ALTERADA A GRAMÁTICA)
---------------------------------------------------------------------------------
-Caso seja realizada alguma modificação no ficheiro `grammar/MOCP.g4`, execute:
-
-java -jar antlr-4.13.1-complete.jar -Dlanguage=Python3 -visitor -Xexact-output-dir -o src grammar/MOCP.g4
-
---------------------------------------------------------------------------------
 6. SCRIPT DE AUTOMAÇÃO DE TESTES (POWERSHELL - WINDOWS)
 --------------------------------------------------------------------------------
 Para varrer toda a pasta de exemplos e validar o comportamento do compilador
-de forma automática, execute o seguinte bloco no PowerShell:
+de forma automática sequencial, execute o seguinte bloco no PowerShell:
 
 Get-ChildItem examples/*.mocp | ForEach-Object {
     Write-Host "`n==================================================" -ForegroundColor Cyan
@@ -100,4 +102,3 @@ Get-ChildItem examples/*.mocp | ForEach-Object {
   Techniques, and Tools (Dragon Book).
 - Assistência de IA: Esta implementação contou com o apoio de Inteligência Artificial 
   (Gemini) no desenho estratégico do pipeline.
-================================================================================
