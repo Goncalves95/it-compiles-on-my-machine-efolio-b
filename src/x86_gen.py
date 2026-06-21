@@ -18,7 +18,8 @@ class X86Gen:
       - rbp é o pointer da frame; Todas as variaveis estão em offsets negativos a partir de rbp
       — params(argumentos) são guradado a partir do prologue, para que a tabela de simbolos seja uniforme
       - rsp tem de ser alinhada a 16-byte antes de qualquer instrução de call.
-      - Calls variádicas (printf, scanf) requerem al = 0 (sem argumentos).
+      - Calls variádicas requerem al com o número de argumentos SSE usados
+        (ex.: printf com "%f" usa al = 1; scanf sem floats em registo usa 0).
 
     Tipos `inteiro`/`real`: o TAC em si é texto sem tipos, por isso o tipo de
     cada nome (variável/temporário) vem de um mapa externo (`types`,
@@ -195,6 +196,16 @@ class X86Gen:
             e(f"    cvttsd2si rax, {xmm}")
             e(f"    mov {sym[target]}, rax")
 
+    def _emit_truth_test(self, token, sym, e):
+        """Emite uma comparação de `token` contra zero, preservando flags."""
+        if self._kind(token) == 'real':
+            self._load_xmm(token, sym, e, 'xmm0')
+            e(f"    pxor xmm1, xmm1")
+            e(f"    comisd xmm0, xmm1")
+        else:
+            self._load_gpr(token, sym, e, 'rax')
+            e(f"    cmp rax, 0")
+
     #---------------------------#
     # PROCESSAMENTO DAS FUNCOES #
     #---------------------------#
@@ -230,13 +241,16 @@ class X86Gen:
         # nao do tipo de elemento em self.types.
         int_i = 0
         float_i = 0
+        stack_i = 0
         for idx, p in enumerate(params):
             p_class = own_param_types[idx] if idx < len(own_param_types) else self.types.get(p, 'inteiro')
             if p_class == 'real':
                 if float_i < len(_XMM_ARG_REGS):
                     e(f"    movsd {sym[p]}, {_XMM_ARG_REGS[float_i]}")
                 else:
-                    e(f"    movsd xmm0, [rbp + {16 + (float_i - len(_XMM_ARG_REGS)) * 8}]")
+                    offset = 16 + stack_i * 8
+                    stack_i += 1
+                    e(f"    movsd xmm0, [rbp + {offset}]")
                     e(f"    movsd {sym[p]}, xmm0")
                 float_i += 1
             else:
@@ -245,7 +259,9 @@ class X86Gen:
                 else:
                     # args >=7 ficam em [rbp + 16], [rbp + 24], na frame do caller
                     # Copiamos para o nosso layout de offsets negativos.
-                    e(f"    mov rax, [rbp + {16 + (int_i - len(_ARG_REGS)) * 8}]")
+                    offset = 16 + stack_i * 8
+                    stack_i += 1
+                    e(f"    mov rax, [rbp + {offset}]")
                     e(f"    mov {sym[p]}, rax")
                 int_i += 1
 
@@ -275,13 +291,10 @@ class X86Gen:
                 continue
 
             # ---- Jump Condicional (false) ----
-            # A condicao de um if/while/for e sempre o resultado de uma
-            # comparacao/logica, logo e sempre 'inteiro' (booleano 0/1).
             m = re.fullmatch(r'ifFalse (\S+) goto (\S+)', line)
             if m:
                 cond, lbl = m.group(1), m.group(2)
-                e(f"    mov rax, {self._op(cond, sym)}")
-                e(f"    cmp rax, 0")
+                self._emit_truth_test(cond, sym, e)
                 e(f"    je .{lbl}")
                 continue
 
@@ -289,8 +302,7 @@ class X86Gen:
             m = re.fullmatch(r'if (\S+) goto (\S+)', line)
             if m:
                 cond, lbl = m.group(1), m.group(2)
-                e(f"    mov rax, {self._op(cond, sym)}")
-                e(f"    cmp rax, 0")
+                self._emit_truth_test(cond, sym, e)
                 e(f"    jne .{lbl}")
                 continue
 
@@ -422,6 +434,11 @@ class X86Gen:
                         int_i2 += 1
                     classified.append((ptype, arg, slot))
 
+                stack_arg_count = sum(1 for _, _, slot in classified if slot is None)
+                stack_padding = 8 if stack_arg_count % 2 else 0
+                if stack_padding:
+                    e(f"    sub rsp, {stack_padding}")
+
                 # 1) Argumentos que nao cabem nos registos vao para a stack,
                 #    da direita para a esquerda (na ordem original).
                 for ptype, arg, slot in reversed(classified):
@@ -447,7 +464,7 @@ class X86Gen:
                 callee_label = "main" if callee == "principal" else f"_{callee}"
                 e(f"    call {callee_label}")
 
-                stack_bytes = sum(8 for _, _, slot in classified if slot is None)
+                stack_bytes = stack_arg_count * 8 + stack_padding
                 if stack_bytes:
                     e(f"    add rsp, {stack_bytes}")
 
