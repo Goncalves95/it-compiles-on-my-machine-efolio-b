@@ -15,6 +15,7 @@ try:
     from semantic_analyzer import SemanticAnalyzer
     from tac_gen import TACGen
     from tac_optimizer import TACOptimizer
+    from x86_gen import X86Gen
 except ImportError as e:
     print(f"[ERRO CRÍTICO] Não foi possível importar os ficheiros gerados: {e}")
     sys.exit(1)
@@ -59,6 +60,7 @@ def parse_arguments():
 
     show_tree = False
     show_ast = False
+    show_asm = False
     input_file = None
 
     for arg in args:
@@ -66,21 +68,23 @@ def parse_arguments():
             show_tree = True
         elif arg == "--ast":
             show_ast = True
+        elif arg == "--asm":
+            show_asm = True
         elif input_file is None:
             input_file = arg
         else:
             print("[ERRO] Argumentos a mais.")
-            print("Uso: py src/main.py <ficheiro.mocp> [--tree] [--ast]")
+            print("Uso: py src/main.py <ficheiro.mocp> [--tree] [--ast] [--asm]")
             sys.exit(1)
 
     if input_file is None:
-        print("Uso: py src/main.py <ficheiro.mocp> [--tree] [--ast]")
+        print("Uso: py src/main.py <ficheiro.mocp> [--tree] [--ast] [--asm]")
         sys.exit(1)
 
-    return input_file, show_tree, show_ast
+    return input_file, show_tree, show_ast, show_asm
 
 def main():
-    input_file, show_tree, show_ast = parse_arguments()
+    input_file, show_tree, show_ast, show_asm = parse_arguments()
 
     if not os.path.exists(input_file):
         print(f"[ERRO] Ficheiro não encontrado: {input_file}")
@@ -143,6 +147,15 @@ def main():
             optimizer = TACOptimizer()
             optimized_code = optimizer.optimize(tac.code)
             optimizer.print_code(optimized_code)
+
+            # Geração do código x86_64
+            if show_asm:
+                print("\n=== CÓDIGO x86_64 ===")
+                x86 = X86Gen()
+                asm = x86.generate(optimized_code)
+                x86.print_code(asm)
+                with open("out.asm", "w", encoding="utf-8") as f:
+                    f.write(asm)
 
     except Exception as e:
         print(f"[ERRO] Exceção durante a análise: {e}")
