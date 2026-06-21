@@ -29,6 +29,9 @@ RELATORIO.md).
 - Python 3.10 ou superior
 - Java Runtime Environment (JRE) instalado (obrigatório para compilar a gramática)
 - Biblioteca antlr4-python3-runtime (versão 4.13.1)
+- `nasm` + `gcc` (obrigatório apenas para montar/executar o código final
+  x86-64 gerado pela flag `--asm`; ver PASSO 4). No Windows, o caminho mais
+  simples é via WSL ou Docker Desktop — ver instruções no PASSO 4.
 
 --------------------------------------------------------------------------------
 3. PASSO 1: CONFIGURAÇÃO DO AMBIENTE (WINDOWS & MACOS)
@@ -100,7 +103,41 @@ semânticas e dispara o motor TAC intermédio de forma sequencial. Detalhes da
 fase de código final (ABI, suporte a `real`, exemplos) em RELATORIO.md.
 
 --------------------------------------------------------------------------------
-6. SCRIPT DE AUTOMAÇÃO DE TESTES (POWERSHELL - WINDOWS)
+6. PASSO 4: TESTAR O CÓDIGO FINAL x86-64 (MONTAR E CORRER COM NASM + GCC)
+--------------------------------------------------------------------------------
+A flag `--asm` gera o ficheiro `out.asm` na raiz do projeto. Para o montar,
+ligar e executar como um programa nativo é preciso `nasm` + `gcc`. No
+Windows, a forma mais simples é usar WSL ou Docker (escolher uma das duas):
+
+Opção A — WSL (Windows Subsystem for Linux):
+  1. Instalar o WSL, se ainda não tiver (PowerShell como Administrador,
+     reiniciar se for pedido):
+       wsl --install
+  2. Abrir a distro instalada (ex. Ubuntu) e instalar as ferramentas:
+       sudo apt update && sudo apt install -y nasm gcc
+  3. No Windows, gerar o assembly (com o ambiente virtual ativo):
+       python src/main.py examples/teste_fatorial.mocp --asm
+  4. Dentro do WSL, ir até à pasta do projeto (em /mnt/c/...) e montar+correr:
+       nasm -f elf64 out.asm -o out.o && gcc out.o -no-pie -o out && ./out
+
+Opção B — Docker Desktop:
+  1. Instalar e arrancar o Docker Desktop (docker.com/products/docker-desktop).
+  2. Gerar o assembly (com o ambiente virtual ativo):
+       python src/main.py examples/teste_fatorial.mocp --asm
+  3. Montar e correr num container temporário (PowerShell, a partir da raiz
+     do projeto):
+       docker run --rm -i -v ${PWD}:/work -w /work gcc:13 bash -c "apt-get update -qq && apt-get install -y -qq nasm && nasm -f elf64 out.asm -o out.o && gcc out.o -no-pie -o out && ./out"
+
+No macOS / Linux, `nasm` e `gcc` podem ser instalados diretamente (ex.
+`brew install nasm` / `sudo apt install nasm gcc`), sem precisar de WSL nem
+Docker.
+
+Nota: exemplos que leem input (ex. `teste_fatorial.mocp`, `teste_media_vetor.mocp`)
+pedem dados ao executar `./out` — basta escrever o valor pedido e pressionar
+Enter, ou usar `echo 5 | ./out` para automatizar.
+
+--------------------------------------------------------------------------------
+7. SCRIPT DE AUTOMAÇÃO DE TESTES (POWERSHELL - WINDOWS)
 --------------------------------------------------------------------------------
 Para varrer toda a pasta de exemplos e validar o comportamento do compilador
 de forma automática sequencial, execute o seguinte bloco no PowerShell:
@@ -113,7 +150,7 @@ Get-ChildItem examples/*.mocp | ForEach-Object {
 }
 
 --------------------------------------------------------------------------------
-7. 📚 FONTES E REFERÊNCIAS
+8. 📚 FONTES E REFERÊNCIAS
 --------------------------------------------------------------------------------
 - Enunciados e Especificações dos E-fólios A e B (UAb).
 - Aho, A. V., Lam, M. S., Sethi, R., & Ullman, J. D. (2007). Compilers: Principles, 
