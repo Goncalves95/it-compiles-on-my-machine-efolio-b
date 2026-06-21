@@ -61,17 +61,19 @@ class X86Gen:
                 lines.append(s)
         return functions
 
-    def _collect_locals(self, func_lines):
+    def _collect_locals(self, func_lines, func_name=None):
         """
-        Two-pass scan do corpo de uma função
-        Devolve (params, sorted_locals):
-          params = lista ordenada dos nomes dos parametros recebidos pela função
-          sorted_locals = lista ordenada de todos as outras variaveis locais que precisam 
-                          de esoaço na stack
+        Two-pass scan do corpo de uma função.
+
+        Nota: o TAC usa a palavra 'param' tanto para parâmetros formais de uma
+        função como para argumentos antes de uma chamada. Como a função
+        principal não recebe parâmetros formais, não devemos interpretar um
+        'param' inicial em principal como parâmetro da função; pode ser apenas
+        o primeiro argumento de uma chamada, por exemplo escrever(dobro(5)).
         """
         params = []
         local_set = set()
-        in_header = True
+        in_header = (func_name != "principal")
 
         for line in func_lines:
             if not line:
@@ -110,7 +112,7 @@ class X86Gen:
     # PROCESSAMENTO DAS FUNCOES #
     #---------------------------#
     def _gen_function(self, name, lines):
-        params, local_names = self._collect_locals(lines)
+        params, local_names = self._collect_locals(lines, name)
 
         all_vars = list(params) + local_names
         sym = {v: f"[rbp - {(i + 1) * 8}]" for i, v in enumerate(all_vars)}
@@ -141,8 +143,8 @@ class X86Gen:
                 e(f"    mov rax, [rbp + {16 + (i - len(_ARG_REGS)) * 8}]")
                 e(f"    mov {sym[p]}, rax")
 
-        in_header = True
-        pending_args = []   # args acomulados entre 'param' e 'call'
+        in_header = (name != "principal")
+        pending_args = []   # args acumulados entre 'param' e 'call'
 
         for line in lines:
             if not line:
@@ -422,7 +424,7 @@ class X86Gen:
     # --------------#
     def _build_output(self):
         out = []
-        out.append("; Para compilar: nasm -f elf64 out.asm && gcc out.o -o out")
+        out.append("; Para compilar: nasm -f elf64 out.asm -o out.o && gcc out.o -no-pie -o out")
         out.append("")
 
         out.append("section .data")
@@ -444,4 +446,5 @@ class X86Gen:
         out.append("")
 
         out.extend(self._text)
+        out.append("section .note.GNU-stack noalloc noexec nowrite progbits")
         return "\n".join(out)
