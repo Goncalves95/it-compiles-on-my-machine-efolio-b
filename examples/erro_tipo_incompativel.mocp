@@ -1,0 +1,9 @@
+vazio principal(vazio) {
+    real y;
+    inteiro x;
+
+    y = 3.5;
+    x = y;
+
+    escrever(x);
+}

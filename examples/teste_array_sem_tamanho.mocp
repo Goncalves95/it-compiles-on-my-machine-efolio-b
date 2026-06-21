@@ -1,0 +1,8 @@
+vazio principal(vazio) {
+    inteiro v[] = {1, 2, 3, 4};
+    inteiro i;
+
+    para (i = 0; i < 4; i = i + 1) {
+        escrever(v[i]);
+    }
+}

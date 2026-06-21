@@ -127,7 +127,8 @@ def main():
                 print(json.dumps(ast, indent=2, ensure_ascii=False))
 
             # Análise semântica -> valida nomes, escopos, chamadas e retornos antes do TAC.
-            semantic_errors = SemanticAnalyzer().analyze(ast)
+            analyzer = SemanticAnalyzer()
+            semantic_errors = analyzer.analyze(ast)
             if semantic_errors:
                 print("\n=== ERROS SEMÂNTICOS ===")
                 for error in semantic_errors:
@@ -136,9 +137,26 @@ def main():
 
             print("\n[SUCESSO] Análise semântica concluída sem erros.")
 
+            # Assinaturas das funcoes (tipo de retorno + tipos dos parametros),
+            # recolhidas pela analise semantica e usadas pelo gerador de codigo
+            # final para escolher entre instrucoes inteiras e SSE (real).
+            # Nota: um parametro array e sempre um apontador (valor inteiro),
+            # independentemente do tipo dos seus elementos - so usamos
+            # registos/instrucoes SSE para parametros escalares 'real'.
+            signatures = {}
+            for table in (analyzer.prototypes, analyzer.functions):
+                for fn_name, sig in table.items():
+                    signatures[fn_name] = {
+                        "returnType": sig["returnType"],
+                        "paramTypes": [
+                            "inteiro" if p["kind"] == "array" else p["baseType"]
+                            for p in sig["params"]
+                        ],
+                    }
+
             # Geração de TAC
             print("\n=== TAC ===")
-            tac = TACGen()
+            tac = TACGen(signatures)
             tac.generate(ast)
             tac.print_code()
 
@@ -152,7 +170,7 @@ def main():
             if show_asm:
                 print("\n=== CÓDIGO x86_64 ===")
                 x86 = X86Gen()
-                asm = x86.generate(optimized_code)
+                asm = x86.generate(optimized_code, types=tac.types, signatures=signatures, array_names=tac.array_names)
                 x86.print_code(asm)
                 with open("out.asm", "w", encoding="utf-8") as f:
                     f.write(asm)

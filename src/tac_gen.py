@@ -1,26 +1,92 @@
+import re
+
+
 class TACGen:
-    def __init__(self):
+    def __init__(self, signatures=None):
         self.temp_count = 0
         self.label_count = 0
         self.str_count = 0
         self.code = []
+
+        # Assinaturas das funcoes (nome -> {"returnType":..., "paramTypes": [...]})
+        # vem da analise semantica; usadas para tipar o resultado de chamadas.
+        self.signatures = signatures or {}
+
+        # Tipo (inteiro/real/string/array) de cada variavel/temporario gerado,
+        # necessario para o back-end de codigo final escolher entre instrucoes
+        # inteiras e SSE (reais). A TAC em si nao precisa disto, mas o
+        # x86_gen.py sim, dado que a representacao textual do TAC nao guarda tipos.
+        self.types = {}
+
+        # Nomes que sao vetores (e portanto, em si, sempre um apontador/
+        # inteiro, independentemente do tipo dos seus elementos guardado em
+        # self.types). Necessario para o back-end nao confundir "v e um
+        # vetor de reais" com "v e, em si, um valor real".
+        self.array_names = set()
 
     # Helpers
 
     def new_temp(self):
         self.temp_count += 1
         return f"t{self.temp_count}"
-    
+
     def new_label(self):
         self.label_count += 1
         return f"L{self.label_count}"
-    
+
     def new_str(self):
         self.str_count += 1
         return f"str{self.str_count}"
-    
+
     def emit(self, inst):
         self.code.append(inst)
+
+    def _set_type(self, name, base_type):
+        self.types[name] = base_type
+
+    def _kind(self, token):
+        # Tipo de um token (nome ja conhecido, ou literal numerico autodescritivo).
+        if token in self.types:
+            return self.types[token]
+        if re.fullmatch(r"-?\d+\.\d+", str(token)):
+            return "real"
+        return "inteiro"
+
+    def _promote(self, left_token, right_token):
+        return "real" if "real" in (self._kind(left_token), self._kind(right_token)) else "inteiro"
+
+    def _gen_init_declarator(self, base_type, node):
+        # Extraido do dispatcher generico porque precisa do baseType vindo da
+        # Declaration (a propria InitDeclarator nao o contem).
+        target_node = node["target"]
+
+        # Declara vetores e reserva o tamanho quando ele existe na AST.
+        if target_node["type"] == "ArrayDeclarator":
+            if target_node["size"] is not None:
+                size = self.generate(target_node["size"])
+            elif node["value"] is not None and node["value"]["type"] == "ArrayLiteral":
+                # Tamanho omitido: infere a partir do numero de elementos do literal.
+                size = len(node["value"]["elements"])
+            else:
+                size = 0
+            self.emit(f"{target_node['name']} = alloc {size}")
+            self._set_type(target_node["name"], base_type)
+            self.array_names.add(target_node["name"])
+
+            if node["value"] is not None and node["value"]["type"] == "ArrayLiteral":
+                for index, element in enumerate(node["value"]["elements"]):
+                    value = self.generate(element)
+                    self.emit(f"{target_node['name']}[{index}] = {value}")
+
+            return None
+
+        target = self.generate(target_node)
+        self._set_type(target, base_type)
+        val = self.generate(node["value"]) if node["value"] is not None else 0
+
+        self.emit(f"{target} = {val}")
+
+        return None
 
     def lvalue_name(self, node):
         # Gera o nome do destino sem criar temporario, para permitir v[i] = valor.
@@ -60,6 +126,10 @@ class TACGen:
                 for param in node["params"]:
                     name = param["decl"]["name"]
                     self.emit(f"param {name}")
+                    if name is not None:
+                        self._set_type(name, param["baseType"])
+                        if param["decl"]["kind"] == "array":
+                            self.array_names.add(name)
 
                 # Corpo da funcao
                 self.generate(node["body"])
@@ -113,8 +183,9 @@ class TACGen:
                     # Se algum falhar
                     self.emit(f"{label_falso}:")
                     self.emit(f"{temp} = 0")
-                    
+
                     self.emit(f"{label_fim}:")
+                    self._set_type(temp, "inteiro")
                     return temp
 
                 # Tratamento Especial: Curto-Circuito do operador Lógico OU (||)
@@ -138,8 +209,9 @@ class TACGen:
                     # Se pelo menos um for verdadeiro
                     self.emit(f"{label_verdadeiro}:")
                     self.emit(f"{temp} = 1")
-                    
+
                     self.emit(f"{label_fim}:")
+                    self._set_type(temp, "inteiro")
                     return temp
 
                 # Operações Aritméticas e Relacionais normais (+, -, *, /, <, >, ==, etc.)
@@ -148,6 +220,10 @@ class TACGen:
                     right = self.generate(node["right"])
                     temp = self.new_temp()
                     self.emit(f"{temp} = {left} {op} {right}")
+
+                    is_relational = op in ("==", "!=", "<", "<=", ">", ">=")
+                    self._set_type(temp, "inteiro" if is_relational else self._promote(left, right))
+
                     return temp
             
             # Call
@@ -161,6 +237,9 @@ class TACGen:
                 temp = self.new_temp()
 
                 self.emit(f"{temp} = call {node['name']}, {len(args)}")
+
+                signature = self.signatures.get(node["name"], {})
+                self._set_type(temp, signature.get("returnType", "inteiro"))
 
                 return temp
             
@@ -186,35 +265,17 @@ class TACGen:
                     }[name]
                     temp = self.new_temp()
                     self.emit(f"{temp} = {read_op}")
+                    self._set_type(temp, "string" if name == "lers" else "inteiro")
                     return temp
             
             # Declaracao de variaveis
             case "Declaration":
                 for decl in node["declarators"]:
-                    self.generate(decl)
-            
-            # Inicializacoes 
+                    self._gen_init_declarator(node["baseType"], decl)
+
+            # Inicializacoes (so chamado via Declaration, que conhece o baseType)
             case "InitDeclarator":
-                target_node = node["target"]
-
-                # Declara vetores e reserva o tamanho quando ele existe na AST.
-                if target_node["type"] == "ArrayDeclarator":
-                    size = self.generate(target_node["size"]) if target_node["size"] is not None else 0
-                    self.emit(f"{target_node['name']} = alloc {size}")
-
-                    if node["value"] is not None and node["value"]["type"] == "ArrayLiteral":
-                        for index, element in enumerate(node["value"]["elements"]):
-                            value = self.generate(element)
-                            self.emit(f"{target_node['name']}[{index}] = {value}")
-
-                    return None
-                
-                target = self.generate(target_node)
-                val = self.generate(node["value"]) if node["value"] is not None else 0
-
-                self.emit(f"{target} = {val}")
-
-                return None
+                raise Exception("InitDeclarator deve ser gerado via _gen_init_declarator")
             
             # Operacoes Unarias
             case "UnaryOp":
@@ -224,19 +285,17 @@ class TACGen:
 
                 self.emit(f"{temp} = {node['op']}{operand}")
 
+                # "!" e sempre booleano (inteiro); "-" preserva o tipo do operando.
+                self._set_type(temp, "inteiro" if node["op"] == "!" else self._kind(operand))
+
                 return temp
             
             # If/Else
             case "If":
-                if node["else"] is not None:
-                    label_else = self.new_label()
-                else:
-                    label_else = None
+                has_else = node["else"] is not None
 
                 label_end = self.new_label()
-
-                if label_else is None:
-                    label_else = label_end
+                label_else = self.new_label() if has_else else label_end
 
                 condition = self.generate(node["condition"])
 
@@ -244,9 +303,10 @@ class TACGen:
 
                 self.generate(node["then"])
 
-                self.emit(f"goto {label_end}")
-
-                if node["else"] is not None:
+                if has_else:
+                    # So precisa de saltar o ramo else quando ele existe; sem else o
+                    # fluxo cai naturalmente em label_end.
+                    self.emit(f"goto {label_end}")
                     self.emit(f"{label_else}:")
                     self.generate(node["else"])
 
@@ -289,33 +349,36 @@ class TACGen:
                 label_start = self.new_label()
                 label_end = self.new_label()
 
-                # Incializacao For
-                self.generate(node["init"])
+                # Incializacao For (opcional na gramatica, ex: "para(;;)")
+                if node["init"] is not None:
+                    self.generate(node["init"])
 
                 self.emit(f"{label_start}:")
 
-                # Condicao avaliada For
-                cond = self.generate(node["condition"])
-
-                self.emit(f"ifFalse {cond} goto {label_end}")
+                # Condicao avaliada For (opcional; ausente == sempre verdadeira)
+                if node["condition"] is not None:
+                    cond = self.generate(node["condition"])
+                    self.emit(f"ifFalse {cond} goto {label_end}")
 
                 # Corpo do For
                 self.generate(node["body"])
 
-                # Atualizacao Var For
-                self.generate(node["update"])      
+                # Atualizacao Var For (opcional)
+                if node["update"] is not None:
+                    self.generate(node["update"])
 
-                # Label de retorno ao topo      
+                # Label de retorno ao topo
                 self.emit(f"goto {label_start}")
 
                 # Fim Loop
-                self.emit(f"{label_end}:") 
+                self.emit(f"{label_end}:")
 
             # Conversoes explicitas entre inteiro e real.
             case "Cast":
                 value = self.generate(node["value"])
                 temp = self.new_temp()
                 self.emit(f"{temp} = ({node['to']}) {value}")
+                self._set_type(temp, node["to"])
                 return temp
 
             # Literais
@@ -334,6 +397,8 @@ class TACGen:
 
                 self.emit(f"{temp} = {node['name']}[{indx}]")
 
+                self._set_type(temp, self._kind(node["name"]))
+
                 return temp
 
             # Literal de vetor usado em expressoes; em declaracoes e tratado no InitDeclarator.
@@ -343,6 +408,7 @@ class TACGen:
                 for index, element in enumerate(node["elements"]):
                     value = self.generate(element)
                     self.emit(f"{temp}[{index}] = {value}")
+                self._set_type(temp, "inteiro")
                 return temp
 
             case "ArrayDeclarator":
