@@ -14,13 +14,14 @@ Estudantes:
 Este repositório contém o compilador completo para a linguagem MOCP
 (My Own C in Português): análise léxica/sintática (ANTLR), análise semântica,
 geração de Código Intermédio (Three Address Code - TAC) com avaliação em
-curto-circuito, e Otimização Local do TAC (Constant Folding e Simplificação
-Algébrica).
+curto-circuito, Otimização Local do TAC (Constant Folding e Simplificação
+Algébrica), e Geração de Código Final para x86-64 real (NASM + System V
+AMD64 ABI), com suporte a `inteiro` e `real` (via SSE2).
 
 Esta versão inclui correções de robustez ao pipeline de TAC e inferência de
-tipos na análise semântica, feitas em resposta ao feedback do e-fólio B
-(detalhes em RELATORIO.md). A fase de Geração de Código Final (e-fólio
-Global) está a ser desenvolvida sobre x86-64 (ver src/x86_gen.py).
+tipos na análise semântica, feitas em resposta ao feedback do e-fólio B, e a
+fase de Geração de Código Final do e-fólio Global (detalhes e exemplos em
+RELATORIO.md).
 
 --------------------------------------------------------------------------------
 2. REQUISITOS DO SISTEMA
@@ -70,6 +71,11 @@ o TAC Otimizado no ecrã.
 Comando Geral (A partir da raiz do projeto, com o ambiente virtual ativo):
   python src/main.py <caminho_do_ficheiro.mocp> --ast
 
+Flags disponíveis:
+  --tree   Mostra a parse tree do ANTLR.
+  --ast    Mostra a AST em JSON.
+  --asm    Gera o código x86-64 (NASM), mostra-o no ecrã e grava-o em out.asm.
+
 Exemplos Práticos Incluídos:
 
   A) Executar código válido com Curto-Circuito Lógico:
@@ -84,8 +90,14 @@ Exemplos Práticos Incluídos:
      python src/main.py examples/erro_keyword_c.mocp --ast
      python src/main.py examples/erro_tipo_incompativel.mocp --ast
 
+  D) Gerar o código final x86-64 e correr o executável (requer nasm + gcc,
+     por exemplo num ambiente Linux/WSL/Docker):
+     python src/main.py examples/teste_fatorial.mocp --asm
+     nasm -f elf64 out.asm -o out.o && gcc out.o -no-pie -o out && ./out
+
 Nota: A flag `--ast` exporta a estrutura lógica em JSON, valida as regras 
-semânticas e dispara o motor TAC intermédio de forma sequencial.
+semânticas e dispara o motor TAC intermédio de forma sequencial. Detalhes da
+fase de código final (ABI, suporte a `real`, exemplos) em RELATORIO.md.
 
 --------------------------------------------------------------------------------
 6. SCRIPT DE AUTOMAÇÃO DE TESTES (POWERSHELL - WINDOWS)
