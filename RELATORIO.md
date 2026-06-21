@@ -3,10 +3,6 @@
 Unidade Curricular: Compilação (21018)
 Grupo: It Compiles on My Machine 🚀 — Fernando Gonçalves, Ricardo Costa, Luís Almeida, Paulo Almeida
 
-> Este documento é a base de trabalho para o relatório a entregar. Cobre as
-> correções feitas em resposta ao feedback do e-fólio B e a nova fase de
-> geração de código final exigida no e-fólio Global. Deve ser adaptado/revisto
-> pelo grupo antes da entrega oficial.
 
 ## 1. Pipeline geral
 
