@@ -28,7 +28,7 @@ RELATORIO.md).
 2. REQUISITOS DO SISTEMA
 --------------------------------------------------------------------------------
 - Python 3.10 ou superior
-- Java Runtime Environment (JRE) instalado (obrigatório para compilar a gramática)
+- Java Runtime Environment (JRE) instalado (necessário apenas para regenerar a gramática/parser)
 - Biblioteca antlr4-python3-runtime (versão 4.13.1)
 - `nasm` + `gcc` (obrigatório apenas para montar/executar o código final
   x86-64 gerado pela flag `--asm`; ver PASSO 4). No Windows, o caminho mais
@@ -57,11 +57,11 @@ No macOS / Linux (Terminal):
      pip install -r requirements.txt
 
 --------------------------------------------------------------------------------
-4. PASSO 2: REGENERAR O PARSER ANTLR (OBRIGATÓRIO NA PRIMEIRA EXECUÇÃO)
+4. PASSO 2: REGENERAR O PARSER ANTLR (OPCIONAL, SE ALTERAR A GRAMÁTICA)
 --------------------------------------------------------------------------------
-Para gerar as classes do Lexer e do Parser em Python na pasta "src" a partir 
-da especificação gramatical em "grammar/MOCP.g4", execute o comando Java na 
-raiz do projeto:
+As classes do Lexer e do Parser em Python já estão incluídas na pasta "src".
+Se alterar a gramática em "grammar/MOCP.g4" ou pretender regenerar estes
+ficheiros, execute o comando Java na raiz do projeto:
 
 java -jar antlr-4.13.1-complete.jar -Dlanguage=Python3 -visitor -Xexact-output-dir -o src grammar/MOCP.g4
 
@@ -129,9 +129,10 @@ Opção B — Docker Desktop:
      do projeto):
        docker run --rm -i -v ${PWD}:/work -w /work gcc:13 bash -c "apt-get update -qq && apt-get install -y -qq nasm && nasm -f elf64 out.asm -o out.o && gcc out.o -no-pie -o out && ./out"
 
-No macOS / Linux, `nasm` e `gcc` podem ser instalados diretamente (ex.
-`brew install nasm` / `sudo apt install nasm gcc`), sem precisar de WSL nem
-Docker.
+Em Linux x86-64, `nasm` e `gcc` podem ser instalados diretamente (ex.
+`sudo apt install nasm gcc`). Em macOS, recomenda-se usar Docker ou uma VM
+Linux, porque o código gerado usa formato ELF64 e foi testado em ambiente
+Linux x86-64.
 
 Nota: exemplos que leem input (ex. `teste_fatorial.mocp`, `teste_media_vetor.mocp`)
 pedem dados ao executar `./out` — basta escrever o valor pedido e pressionar
