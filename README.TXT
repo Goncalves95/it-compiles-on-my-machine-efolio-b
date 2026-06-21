@@ -1,5 +1,5 @@
 ================================================================================
-               MOCP COMPILER - E-FÓLIO B
+               MOCP COMPILER - E-FÓLIO GLOBAL
                Unidade Curricular: Compilação (21018)
 ================================================================================
 
@@ -13,11 +13,16 @@ Estudantes:
 --------------------------------------------------------------------------------
 1. DESCRIÇÃO DO REPOSITÓRIO
 --------------------------------------------------------------------------------
-Este repositório contém a evolução do compilador para a linguagem MOCP 
-(My Own C in Português). O foco desta fase (E-fólio B) centra-se no 
-pipeline de Análise Semântica, Geração de Código Intermédio (Three 
-Address Code - TAC) com avaliação em curto-circuito, e Otimização 
-Local de código intermédio (Constant Folding e Simplificação Algébrica).
+Este repositório contém o compilador completo para a linguagem MOCP
+(My Own C in Português): análise léxica/sintática (ANTLR), análise semântica,
+geração de Código Intermédio (Three Address Code - TAC) com avaliação em
+curto-circuito, e Otimização Local do TAC (Constant Folding e Simplificação
+Algébrica).
+
+Esta versão inclui correções de robustez ao pipeline de TAC e inferência de
+tipos na análise semântica, feitas em resposta ao feedback do e-fólio B
+(detalhes em RELATORIO.md). A fase de Geração de Código Final (e-fólio
+Global) está a ser desenvolvida sobre x86-64 (ver src/x86_gen.py).
 
 --------------------------------------------------------------------------------
 2. REQUISITOS DO SISTEMA
@@ -61,7 +66,7 @@ java -jar antlr-4.13.1-complete.jar -Dlanguage=Python3 -visitor -Xexact-output-d
 5. PASSO 3: COMO EXECUTAR O COMPILADOR
 --------------------------------------------------------------------------------
 O compilador aceita ficheiros com a extensão `.mocp`. Por omissão, o pipeline
-realiza a análise sintática, a validação semântica, a geração de TAC e exibe 
+realiza a análise sintática, a validação semântica, a geração de TAC e exibe
 o TAC Otimizado no ecrã.
 
 Comando Geral (A partir da raiz do projeto, com o ambiente virtual ativo):
@@ -79,8 +84,9 @@ Exemplos Práticos Incluídos:
      python src/main.py examples/erro_sintatico.mocp --ast
      python src/main.py examples/erro_if_sem_chavetas.mocp --ast
      python src/main.py examples/erro_keyword_c.mocp --ast
+     python src/main.py examples/erro_tipo_incompativel.mocp --ast
 
-Nota: A flag `--ast` exporta a estrutura lógica em JSON, valida as regras 
+Nota: A flag `--ast` exporta a estrutura lógica em JSON, valida as regras
 semânticas e dispara o motor TAC intermédio de forma sequencial.
 
 --------------------------------------------------------------------------------

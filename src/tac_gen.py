@@ -199,7 +199,13 @@ class TACGen:
 
                 # Declara vetores e reserva o tamanho quando ele existe na AST.
                 if target_node["type"] == "ArrayDeclarator":
-                    size = self.generate(target_node["size"]) if target_node["size"] is not None else 0
+                    if target_node["size"] is not None:
+                        size = self.generate(target_node["size"])
+                    elif node["value"] is not None and node["value"]["type"] == "ArrayLiteral":
+                        # Tamanho omitido: infere a partir do numero de elementos do literal.
+                        size = len(node["value"]["elements"])
+                    else:
+                        size = 0
                     self.emit(f"{target_node['name']} = alloc {size}")
 
                     if node["value"] is not None and node["value"]["type"] == "ArrayLiteral":
@@ -228,15 +234,10 @@ class TACGen:
             
             # If/Else
             case "If":
-                if node["else"] is not None:
-                    label_else = self.new_label()
-                else:
-                    label_else = None
+                has_else = node["else"] is not None
 
                 label_end = self.new_label()
-
-                if label_else is None:
-                    label_else = label_end
+                label_else = self.new_label() if has_else else label_end
 
                 condition = self.generate(node["condition"])
 
@@ -244,9 +245,10 @@ class TACGen:
 
                 self.generate(node["then"])
 
-                self.emit(f"goto {label_end}")
-
-                if node["else"] is not None:
+                if has_else:
+                    # So precisa de saltar o ramo else quando ele existe; sem else o
+                    # fluxo cai naturalmente em label_end.
+                    self.emit(f"goto {label_end}")
                     self.emit(f"{label_else}:")
                     self.generate(node["else"])
 
@@ -289,27 +291,29 @@ class TACGen:
                 label_start = self.new_label()
                 label_end = self.new_label()
 
-                # Incializacao For
-                self.generate(node["init"])
+                # Incializacao For (opcional na gramatica, ex: "para(;;)")
+                if node["init"] is not None:
+                    self.generate(node["init"])
 
                 self.emit(f"{label_start}:")
 
-                # Condicao avaliada For
-                cond = self.generate(node["condition"])
-
-                self.emit(f"ifFalse {cond} goto {label_end}")
+                # Condicao avaliada For (opcional; ausente == sempre verdadeira)
+                if node["condition"] is not None:
+                    cond = self.generate(node["condition"])
+                    self.emit(f"ifFalse {cond} goto {label_end}")
 
                 # Corpo do For
                 self.generate(node["body"])
 
-                # Atualizacao Var For
-                self.generate(node["update"])      
+                # Atualizacao Var For (opcional)
+                if node["update"] is not None:
+                    self.generate(node["update"])
 
-                # Label de retorno ao topo      
+                # Label de retorno ao topo
                 self.emit(f"goto {label_start}")
 
                 # Fim Loop
-                self.emit(f"{label_end}:") 
+                self.emit(f"{label_end}:")
 
             # Conversoes explicitas entre inteiro e real.
             case "Cast":

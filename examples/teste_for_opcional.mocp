@@ -1,0 +1,26 @@
+vazio principal(vazio) {
+    inteiro i;
+
+    i = 0;
+    para (;;) {
+        escrever(i);
+        i = i + 1;
+        se (i >= 3) {
+            retornar;
+        }
+    }
+}
+
+inteiro contar(inteiro limite) {
+    inteiro i;
+    inteiro soma;
+
+    i = 0;
+    soma = 0;
+    para (; i < limite ;) {
+        soma = soma + i;
+        i = i + 1;
+    }
+
+    retornar soma;
+}

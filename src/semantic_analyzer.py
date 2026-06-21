@@ -93,7 +93,9 @@ class SemanticAnalyzer:
 
             case "Assignment":
                 self._check_lvalue(node["target"])
-                self._check_expr(node["value"])
+                value_type = self._check_expr(node["value"])
+                target_type = self._lvalue_type(node["target"])
+                self._check_assign_compat(target_type, value_type, "atribuicao")
 
             case "BuiltInCall" | "Call":
                 self._check_expr(node)
@@ -134,7 +136,8 @@ class SemanticAnalyzer:
                 self._check_expr(target["size"])
 
         if node["value"] is not None:
-            self._check_expr(node["value"])
+            value_type = self._check_expr(node["value"])
+            self._check_assign_compat(base_type, value_type, "inicializacao")
 
     def _check_return(self, node):
         expected = self.current_function["returnType"]
@@ -145,7 +148,8 @@ class SemanticAnalyzer:
         elif expected != "vazio" and value is None:
             self._error(f"Funcao '{self.current_function['name']}' deve retornar valor.")
         elif value is not None:
-            self._check_expr(value)
+            value_type = self._check_expr(value)
+            self._check_assign_compat(expected, value_type, "retorno")
 
     def _check_expr(self, node):
         node_type = node["type"]
@@ -177,9 +181,14 @@ class SemanticAnalyzer:
                 return self._check_expr(node["operand"])
 
             case "BinaryOp":
-                self._check_expr(node["left"])
-                self._check_expr(node["right"])
-                return "inteiro" if node["op"] in ["==", "!=", "<", "<=", ">", ">=", "&&", "||"] else "unknown"
+                left_type = self._check_expr(node["left"])
+                right_type = self._check_expr(node["right"])
+                op = node["op"]
+
+                if op in ["==", "!=", "<", "<=", ">", ">=", "&&", "||"]:
+                    return "inteiro"
+
+                return self._infer_arith_type(left_type, right_type, op)
 
             case "Cast":
                 self._check_expr(node["value"])
@@ -192,6 +201,42 @@ class SemanticAnalyzer:
                 return self._check_builtin(node)
 
         return "unknown"
+
+    def _infer_arith_type(self, left_type, right_type, op):
+        # Tipo numerico resultante de +,-,*,/,%: real se algum operando for real,
+        # inteiro se ambos forem inteiro; tipos nao numericos (string/array) sao erro.
+        if left_type == "unknown" or right_type == "unknown":
+            return "unknown"
+
+        if left_type in ("inteiro", "real") and right_type in ("inteiro", "real"):
+            return "real" if "real" in (left_type, right_type) else "inteiro"
+
+        self._error(f"Operacao aritmetica '{op}' invalida entre os tipos '{left_type}' e '{right_type}'.")
+        return "unknown"
+
+    def _lvalue_type(self, node):
+        if node["type"] not in ("Identifier", "ArrayAccess"):
+            return "unknown"
+
+        symbol = self._resolve_var(node["name"])
+        return symbol["baseType"] if symbol else "unknown"
+
+    def _check_assign_compat(self, target_type, value_type, context):
+        # So valida coercoes entre os tipos numericos inteiro/real; ignora
+        # string/array/unknown para nao gerar falsos positivos noutros casos.
+        if target_type not in ("inteiro", "real") or value_type not in ("inteiro", "real"):
+            return
+
+        if target_type == value_type:
+            return
+
+        if target_type == "real" and value_type == "inteiro":
+            return
+
+        self._error(
+            f"Atribuicao incompativel em {context}: nao e possivel atribuir um valor "
+            f"'{value_type}' a um destino '{target_type}' sem conversao explicita."
+        )
 
     def _check_lvalue(self, node):
         if node["type"] == "Identifier":
